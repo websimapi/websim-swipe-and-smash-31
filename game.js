@@ -150,6 +150,9 @@ class Game {
 
     onOrientationChange(newOrientation) {
         if (this.currentOrientation === newOrientation) return;
+        // Don't allow orientation changes while processing matches
+        if (this.isProcessing) return;
+        
         this.currentOrientation = newOrientation;
         
         const color = getOrientationColor(newOrientation);
