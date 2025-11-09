@@ -138,7 +138,7 @@ h1 {
 
 #game-board-container {
     position: relative;
-    /* transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55); */ /* Bounce effect removed */
+    transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
 #game-board-container.rainbow-mode {
@@ -262,7 +262,7 @@ h1 {
     background-position: center;
     cursor: pointer;
     position: absolute;
-    transition: top 0.3s ease, left 0.3s ease, transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease;
+    transition: top 0.3s ease, left 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
     will-change: top, left, transform; /* Performance hint for browsers */
     transform-origin: center center;
 }

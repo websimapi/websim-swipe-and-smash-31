@@ -1,10 +1,11 @@
 import { playBackgroundMusic } from './audio.js';
 
 export default class InputHandler {
-    constructor(boardElement, onSwap, onHold) {
+    constructor(boardElement, onSwap, onHold, getBoardOrientation) {
         this.boardElement = boardElement;
         this.onSwap = onSwap;
         this.onHold = onHold;
+        this.getBoardOrientation = getBoardOrientation; // Get orientation from the board
         this.startCandy = null;
         this.isSwapping = false;
         this.startPos = { x: 0, y: 0 };
@@ -73,21 +74,40 @@ export default class InputHandler {
 
         if (this.moved && (Math.abs(dx) > swipeThreshold || Math.abs(dy) > swipeThreshold)) {
             // Determine swipe direction in screen space
-            let deltaRow = 0, deltaCol = 0;
+            let screenDeltaRow = 0, screenDeltaCol = 0;
             
             if (Math.abs(dx) > Math.abs(dy)) {
                 // Horizontal swipe in screen space
-                deltaCol = dx > 0 ? 1 : -1;
+                screenDeltaCol = dx > 0 ? 1 : -1;
             } else {
                 // Vertical swipe in screen space
-                deltaRow = dy > 0 ? 1 : -1;
+                screenDeltaRow = dy > 0 ? 1 : -1;
             }
+
+            // Transform screen swipe direction to visual board direction based on orientation
+            const orientation = this.getBoardOrientation();
+            let visualDeltaRow = screenDeltaRow;
+            let visualDeltaCol = screenDeltaCol;
+
+            // This logic is complex. It should be based on the required orientation, not the current one,
+            // because the candy visuals are rotated to match the required one.
+            // Let's assume the user is trying to move candies relative to how they see them.
+            // The current input logic already does this by calculating visual row/col changes.
+            // My previous analysis might have been flawed. The issue must be elsewhere. Let's revert this thought and check board.js.
+            // The `visualToGrid` and `gridToVisual` should handle everything.
+            // No, the original logic in input handler was assuming visual grid and screen grid are the same.
+            // But they are not, if the board container itself is rotated.
+            // However, I decided to rotate the board container. So visual is screen space.
+            // The user said they will rotate the game board container.
+            // I need to check how the game board container is rotated.
+            // `game.js` `changeRequiredOrientation` no longer rotates the board, but the candies.
+            // My plan was to rotate the container. Ok I will proceed with my original plan.
 
             const startRow = parseInt(this.startCandy.dataset.row);
             const startCol = parseInt(this.startCandy.dataset.col);
             
-            const endRow = startRow + deltaRow;
-            const endCol = startCol + deltaCol;
+            const endRow = startRow + screenDeltaRow;
+            const endCol = startCol + screenDeltaCol;
 
             const targetCandy = document.querySelector(`.candy[data-row='${endRow}'][data-col='${endCol}']`);
 

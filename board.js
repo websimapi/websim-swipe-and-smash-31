@@ -93,11 +93,8 @@ export default class Board {
     }
 
     rotateCandies(rotation) {
-        this.boardElement.querySelectorAll('.candy').forEach(candy => {
-            const currentTransform = candy.style.transform;
-            const existingTransforms = currentTransform.replace(/rotate\([^)]+\)/g, '').trim();
-            candy.style.transform = `${existingTransforms} rotate(${rotation}deg)`.trim();
-        });
+        // This is no longer needed as the parent container will be rotated.
+        // Keeping the method to avoid breaking calls, but it does nothing.
     }
 
     createCandy(row, col, type, isInitializing = false, isReplay = false) {
@@ -128,26 +125,20 @@ export default class Board {
             candy.style.left = `${col * candySize}px`;
         }
 
-        // Apply current rotation if any
+        // Apply current rotation if any - REMOVED
+        /*
         const currentRotation = this.getCurrentRotation();
         if (currentRotation !== 0) {
             candy.style.transform = `rotate(${currentRotation}deg)`;
         }
+        */
 
         this.boardElement.appendChild(candy);
         return candy;
     }
 
     getCurrentRotation() {
-        // Get rotation from any existing candy, or return 0
-        const existingCandy = this.boardElement.querySelector('.candy');
-        if (existingCandy) {
-            const transform = existingCandy.style.transform;
-            const rotateMatch = transform.match(/rotate\(([^)]+)deg\)/);
-            if (rotateMatch) {
-                return parseFloat(rotateMatch[1]);
-            }
-        }
+        // This is no longer relevant
         return 0;
     }
 

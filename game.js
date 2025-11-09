@@ -45,7 +45,7 @@ function getOrientationRotation(orientation) {
         case 'portrait-primary': return 0;
         case 'landscape-primary': return 90; // Rotated right
         case 'portrait-secondary': return 180;
-        case 'landscape-secondary': return 270; // Rotated left (use 270 for simpler math)
+        case 'landscape-secondary': return -90; // Rotated left
         default: return 0;
     }
 }
@@ -80,7 +80,7 @@ class Game {
         this.replay = new Replay(this, config);
         this.isRecordingStarted = false;
         
-        this.inputHandler = new InputHandler(this.board.boardElement, this.onSwap.bind(this), this.onSmash.bind(this));
+        this.inputHandler = new InputHandler(this.board.boardElement, this.onSwap.bind(this), this.onSmash.bind(this), () => this.board.orientation);
         
         this.requiredOrientation = 'portrait-primary';
         this.currentOrientation = null;
@@ -138,13 +138,15 @@ class Game {
         this.changeRequiredOrientation(); // Set initial required orientation
         this.orientationRuleInterval = setInterval(this.changeRequiredOrientation.bind(this), 15000);
 
-        this.inputHandler.enable();
+        // this.inputHandler.enable(); // Will be enabled by checkOrientationMatch
+        this.checkOrientationMatch();
         
         // Process any matches that exist at the start of the game
         setTimeout(async () => {
             this.isProcessing = true;
             await this.board.processMatches(false, null);
             this.isProcessing = false;
+            this.checkOrientationMatch(); // Re-enable input after initial cascade
         }, 500); // Small delay for visual clarity
     }
 
@@ -195,8 +197,8 @@ class Game {
 
         const rotation = getOrientationRotation(this.requiredOrientation);
         
-        // Rotate each candy individually so it appears facing the new "up"
-        this.board.rotateCandies(rotation);
+        // Rotate the entire board container
+        this.board.boardElement.parentElement.style.transform = `rotate(${rotation}deg)`;
         
         this.ui.comboDisplay.style.transform = `translate(-50%, -50%) rotate(0deg) scale(0.8)`;
 
