@@ -71,7 +71,7 @@ export default class InputHandler {
 
         const swipeThreshold = 20;
 
-        if (this.moved && (Math.abs(dx) > Math.abs(dy) > swipeThreshold)) {
+        if (this.moved && (Math.abs(dx) > swipeThreshold || Math.abs(dy) > swipeThreshold)) {
             // Determine swipe direction in screen space
             let deltaRow = 0, deltaCol = 0;
             
