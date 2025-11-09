@@ -10,6 +10,45 @@ export default class Board {
         this.onMatch = onMatch;
         this.getNewCandyType = getNewCandyType;
         this.getIsPaused = getIsPaused;
+        this.orientation = 'portrait-primary'; // Track current orientation
+    }
+
+    setOrientation(orientation) {
+        this.orientation = orientation;
+    }
+
+    // Transform visual row/col to grid row/col based on orientation
+    visualToGrid(visualRow, visualCol) {
+        const size = this.size;
+        switch (this.orientation) {
+            case 'portrait-primary': // 0°
+                return { row: visualRow, col: visualCol };
+            case 'landscape-primary': // 90° CW
+                return { row: visualCol, col: size - 1 - visualRow };
+            case 'portrait-secondary': // 180°
+                return { row: size - 1 - visualRow, col: size - 1 - visualCol };
+            case 'landscape-secondary': // 270° CW (or 90° CCW)
+                return { row: size - 1 - visualCol, col: visualRow };
+            default:
+                return { row: visualRow, col: visualCol };
+        }
+    }
+
+    // Transform grid row/col to visual row/col based on orientation
+    gridToVisual(gridRow, gridCol) {
+        const size = this.size;
+        switch (this.orientation) {
+            case 'portrait-primary': // 0°
+                return { row: gridRow, col: gridCol };
+            case 'landscape-primary': // 90° CW
+                return { row: size - 1 - gridCol, col: gridRow };
+            case 'portrait-secondary': // 180°
+                return { row: size - 1 - gridRow, col: size - 1 - gridCol };
+            case 'landscape-secondary': // 270° CW
+                return { row: gridCol, col: size - 1 - gridRow };
+            default:
+                return { row: gridRow, col: gridCol };
+        }
     }
 
     pausableTimeout(duration) {
@@ -40,7 +79,10 @@ export default class Board {
             this.grid[r] = [];
             for (let c = 0; c < this.size; c++) {
                 const candyType = initialState[r][c];
-                this.grid[r][c] = this.createCandy(r, c, candyType, true);
+                // Transform grid position to visual position for display
+                const visual = this.gridToVisual(r, c);
+                const candy = this.createCandy(visual.row, visual.col, candyType, true);
+                this.grid[r][c] = candy;
             }
         }
     }
@@ -58,6 +100,8 @@ export default class Board {
         if (isReplay) {
             candy.classList.add('replay-candy');
         }
+        
+        // Store visual coordinates in dataset
         candy.dataset.row = row;
         candy.dataset.col = col;
         candy.dataset.type = candyType;
@@ -81,27 +125,32 @@ export default class Board {
     }
 
     async swapCandies(candy1, candy2) {
-        const r1 = parseInt(candy1.dataset.row);
-        const c1 = parseInt(candy1.dataset.col);
-        const r2 = parseInt(candy2.dataset.row);
-        const c2 = parseInt(candy2.dataset.col);
+        // Get visual positions from the candy elements
+        const vr1 = parseInt(candy1.dataset.row);
+        const vc1 = parseInt(candy1.dataset.col);
+        const vr2 = parseInt(candy2.dataset.row);
+        const vc2 = parseInt(candy2.dataset.col);
+
+        // Transform to grid coordinates
+        const g1 = this.visualToGrid(vr1, vc1);
+        const g2 = this.visualToGrid(vr2, vc2);
 
         // Swap in grid
-        this.grid[r1][c1] = candy2;
-        this.grid[r2][c2] = candy1;
+        this.grid[g1.row][g1.col] = candy2;
+        this.grid[g2.row][g2.col] = candy1;
 
-        // Swap datasets
-        candy1.dataset.row = r2;
-        candy1.dataset.col = c2;
-        candy2.dataset.row = r1;
-        candy2.dataset.col = c1;
+        // Swap visual datasets (keep visual coordinates in dataset)
+        candy1.dataset.row = vr2;
+        candy1.dataset.col = vc2;
+        candy2.dataset.row = vr1;
+        candy2.dataset.col = vc1;
 
-        // Animate swap
+        // Animate swap using visual positions
         const candySize = this.boardElement.clientWidth / this.size;
-        candy1.style.top = `${r2 * candySize}px`;
-        candy1.style.left = `${c2 * candySize}px`;
-        candy2.style.top = `${r1 * candySize}px`;
-        candy2.style.left = `${c1 * candySize}px`;
+        candy1.style.top = `${vr2 * candySize}px`;
+        candy1.style.left = `${vc2 * candySize}px`;
+        candy2.style.top = `${vr1 * candySize}px`;
+        candy2.style.left = `${vc1 * candySize}px`;
 
         playSound('nice_swipe.mp3');
         recorder.recordSound('nice_swipe.mp3');

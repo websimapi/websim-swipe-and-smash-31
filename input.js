@@ -11,7 +11,6 @@ export default class InputHandler {
         this.holdTimeout = null;
         this.moved = false;
         this.enabled = false;
-        this.rotation = 0;
 
         // Bind event handlers once to ensure they can be removed correctly
         this.boundHandlePointerDown = this.handlePointerDown.bind(this);
@@ -29,10 +28,6 @@ export default class InputHandler {
         if (!this.enabled) return;
         this.enabled = false;
         this.boardElement.parentElement.removeEventListener('pointerdown', this.boundHandlePointerDown);
-    }
-
-    setRotation(degrees) {
-        this.rotation = degrees;
     }
 
     handlePointerDown(e) {
@@ -74,35 +69,22 @@ export default class InputHandler {
             this.holdTimeout = null;
         }
 
-        const swipeThreshold = 20; // Minimum pixels to be considered a swipe
+        const swipeThreshold = 20;
 
         if (this.moved && (Math.abs(dx) > swipeThreshold || Math.abs(dy) > swipeThreshold)) {
-            // Adjust swipe vector for rotation
-            // The screen's Y-axis is inverted (positive is down), so we use -dy for calculations.
-            const screenDy = -dy;
-            const rad = (this.rotation % 360) * (Math.PI / 180); // angle in radians
-            const cos = Math.cos(rad);
-            const sin = Math.sin(rad);
-            const adjustedDx = dx * cos + screenDy * sin;
-            const adjustedDy = -dx * sin + screenDy * cos;
-
-            // A swipe has been detected, determine direction
+            // Simple screen-space swipe detection (no rotation adjustment)
             let endRow, endCol;
             const startRow = parseInt(this.startCandy.dataset.row);
             const startCol = parseInt(this.startCandy.dataset.col);
 
-            if (Math.abs(adjustedDx) > Math.abs(adjustedDy)) { // Horizontal swipe
+            if (Math.abs(dx) > Math.abs(dy)) { // Horizontal swipe
                 endRow = startRow;
-                endCol = startCol + (adjustedDx > 0 ? 1 : -1);
+                endCol = startCol + (dx > 0 ? 1 : -1);
             } else { // Vertical swipe
-                // In our grid, a positive change in row index means moving DOWN.
-                // A positive adjustedDy means an UPWARD swipe in the board's coordinate system.
-                // Therefore, a positive adjustedDy should DECREASE the row index.
-                endRow = startRow + (adjustedDy > 0 ? -1 : 1);
+                endRow = startRow + (dy > 0 ? 1 : -1);
                 endCol = startCol;
             }
 
-            // Find the candy at the target position
             const targetCandy = document.querySelector(`.candy[data-row='${endRow}'][data-col='${endCol}']`);
 
             if (targetCandy) {
@@ -112,7 +94,6 @@ export default class InputHandler {
                 });
             }
 
-            // The swipe action is complete, so we clean up immediately
             this.handlePointerUp();
         }
     }

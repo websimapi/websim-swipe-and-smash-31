@@ -158,6 +158,9 @@ class Game {
         const pos = getIndicatorPosition(newOrientation);
         Object.assign(this.orientationIndicator.style, pos);
 
+        // Update board's orientation for coordinate transformation
+        this.board.setOrientation(newOrientation);
+
         if (this.isRecordingStarted) {
             recorder.recordAction({ type: 'currentOrientationChange', orientation: newOrientation });
         }
@@ -188,19 +191,15 @@ class Game {
         }
 
         const rotation = getOrientationRotation(this.requiredOrientation);
-        // this.ui.gameBoardContainer.style.transform = `rotate(${rotation}deg)`; // No longer rotating container
         
         // Rotate each candy individually so it appears facing the new "up"
         this.board.boardElement.querySelectorAll('.candy').forEach(candy => {
-            // Preserve existing transforms like scale, and add rotation
             const currentTransform = candy.style.transform;
             const existingTransforms = currentTransform.replace(/rotate\([^)]+\)/g, '').trim();
             candy.style.transform = `${existingTransforms} rotate(${rotation}deg)`;
         });
         
-        // Combo display still needs its own rotation, but relative to the already rotating container
         this.ui.comboDisplay.style.transform = `translate(-50%, -50%) rotate(0deg) scale(0.8)`;
-        this.inputHandler.setRotation(rotation);
 
         this.checkOrientationMatch();
     }
