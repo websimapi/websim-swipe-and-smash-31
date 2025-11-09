@@ -78,11 +78,13 @@ export default class InputHandler {
 
         if (this.moved && (Math.abs(dx) > swipeThreshold || Math.abs(dy) > swipeThreshold)) {
             // Adjust swipe vector for rotation
+            // The screen's Y-axis is inverted (positive is down), so we use -dy for calculations.
+            const screenDy = -dy;
             const rad = (this.rotation % 360) * (Math.PI / 180); // angle in radians
             const cos = Math.cos(rad);
             const sin = Math.sin(rad);
-            const adjustedDx = dx * cos + dy * sin;
-            const adjustedDy = -dx * sin + dy * cos;
+            const adjustedDx = dx * cos + screenDy * sin;
+            const adjustedDy = -dx * sin + screenDy * cos;
 
             // A swipe has been detected, determine direction
             let endRow, endCol;
@@ -93,7 +95,10 @@ export default class InputHandler {
                 endRow = startRow;
                 endCol = startCol + (adjustedDx > 0 ? 1 : -1);
             } else { // Vertical swipe
-                endRow = startRow + (adjustedDy > 0 ? 1 : -1);
+                // In our grid, a positive change in row index means moving DOWN.
+                // A positive adjustedDy means an UPWARD swipe in the board's coordinate system.
+                // Therefore, a positive adjustedDy should DECREASE the row index.
+                endRow = startRow + (adjustedDy > 0 ? -1 : 1);
                 endCol = startCol;
             }
 
