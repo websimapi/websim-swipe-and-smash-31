@@ -92,6 +92,14 @@ export default class Board {
         this.boardElement.style.gridTemplateRows = `repeat(${this.size}, 1fr)`;
     }
 
+    rotateCandies(rotation) {
+        this.boardElement.querySelectorAll('.candy').forEach(candy => {
+            const currentTransform = candy.style.transform;
+            const existingTransforms = currentTransform.replace(/rotate\([^)]+\)/g, '').trim();
+            candy.style.transform = `${existingTransforms} rotate(${rotation}deg)`.trim();
+        });
+    }
+
     createCandy(row, col, type, isInitializing = false, isReplay = false) {
         const candy = document.createElement('div');
         const candyType = type || this.getNewCandyType(isInitializing);
@@ -120,8 +128,27 @@ export default class Board {
             candy.style.left = `${col * candySize}px`;
         }
 
+        // Apply current rotation if any
+        const currentRotation = this.getCurrentRotation();
+        if (currentRotation !== 0) {
+            candy.style.transform = `rotate(${currentRotation}deg)`;
+        }
+
         this.boardElement.appendChild(candy);
         return candy;
+    }
+
+    getCurrentRotation() {
+        // Get rotation from any existing candy, or return 0
+        const existingCandy = this.boardElement.querySelector('.candy');
+        if (existingCandy) {
+            const transform = existingCandy.style.transform;
+            const rotateMatch = transform.match(/rotate\(([^)]+)deg\)/);
+            if (rotateMatch) {
+                return parseFloat(rotateMatch[1]);
+            }
+        }
+        return 0;
     }
 
     async swapCandies(candy1, candy2) {
@@ -159,24 +186,27 @@ export default class Board {
 
     getAffectedCandies(powerupCandy) {
         const affected = new Set();
-        const r = parseInt(powerupCandy.dataset.row);
-        const c = parseInt(powerupCandy.dataset.col);
+        const vr = parseInt(powerupCandy.dataset.row);
+        const vc = parseInt(powerupCandy.dataset.col);
+        const gridCoords = this.visualToGrid(vr, vc);
+        const gr = gridCoords.row;
+        const gc = gridCoords.col;
         const powerupType = powerupCandy.dataset.powerup;
 
         switch (powerupType) {
             case 'row':
                 for (let i = 0; i < this.size; i++) {
-                    if (this.grid[r][i]) affected.add(this.grid[r][i]);
+                    if (this.grid[gr][i]) affected.add(this.grid[gr][i]);
                 }
                 break;
             case 'col':
                 for (let i = 0; i < this.size; i++) {
-                    if (this.grid[i][c]) affected.add(this.grid[i][c]);
+                    if (this.grid[i][gc]) affected.add(this.grid[i][gc]);
                 }
                 break;
             case 'bomb':
-                 for (let i = r - 1; i <= r + 1; i++) {
-                    for (let j = c - 1; j <= c + 1; j++) {
+                 for (let i = gr - 1; i <= gr + 1; i++) {
+                    for (let j = gc - 1; j <= gc + 1; j++) {
                         if (this.isValid(i, j) && this.grid[i][j]) {
                             affected.add(this.grid[i][j]);
                         }
@@ -209,17 +239,25 @@ export default class Board {
                 } else if (group.type === 'L' || group.type === 'T') {
                      powerup = { type: 'bomb' };
                 } else if (group.type === 'four') {
-                     powerup = group.candies[1].dataset.row === group.candies[0].dataset.row ? { type: 'row' } : { type: 'col' };
+                     // Determine if the match is horizontal or vertical in GRID space
+                     const firstCandy = group.candies[0];
+                     const secondCandy = group.candies[1];
+                     const gr1 = this.getCandyGridRow(firstCandy);
+                     const gc1 = this.getCandyGridCol(firstCandy);
+                     const gr2 = this.getCandyGridRow(secondCandy);
+                     const gc2 = this.getCandyGridCol(secondCandy);
+                     
+                     powerup = gr1 === gr2 ? { type: 'row' } : { type: 'col' };
                 }
             }
             
             if (powerup) {
                 const primaryCandy = group.candies.find(c => swappedCandies && swappedCandies.includes(c)) || group.candies[Math.floor(group.candies.length/2)];
-                const r = parseInt(primaryCandy.dataset.row);
-                const c = parseInt(primaryCandy.dataset.col);
+                const vr = parseInt(primaryCandy.dataset.row);
+                const vc = parseInt(primaryCandy.dataset.col);
                 
-                powerup.row = r;
-                powerup.col = c;
+                powerup.row = vr;
+                powerup.col = vc;
                 createdPowerups.push(powerup);
             }
         }
@@ -228,8 +266,10 @@ export default class Board {
 
         // Don't remove candies that are becoming powerups
         createdPowerups.forEach(p => {
-            const candyToUpgrade = this.grid[p.row][p.col];
-            if (candyToUpgrade && allCandiesToClear.has(candyToUpgrade)) {
+            const candyToUpgrade = Array.from(allCandiesToClear).find(c => 
+                parseInt(c.dataset.row) === p.row && parseInt(c.dataset.col) === p.col
+            );
+            if (candyToUpgrade) {
                 allCandiesToClear.delete(candyToUpgrade);
                 candyToUpgrade.dataset.powerup = p.type;
                 candyToUpgrade.classList.add(`powerup-${p.type}`);
@@ -267,7 +307,8 @@ export default class Board {
             
             allCandiesToClear.forEach(candy => {
                 candy.classList.add('matched');
-                this.grid[parseInt(candy.dataset.row)][parseInt(candy.dataset.col)] = null;
+                const gridCoords = this.visualToGrid(parseInt(candy.dataset.row), parseInt(candy.dataset.col));
+                this.grid[gridCoords.row][gridCoords.col] = null;
             });
         }
         
@@ -283,17 +324,30 @@ export default class Board {
         return true;
     }
 
+    getCandyGridRow(candy) {
+        const vr = parseInt(candy.dataset.row);
+        const vc = parseInt(candy.dataset.col);
+        return this.visualToGrid(vr, vc).row;
+    }
+
+    getCandyGridCol(candy) {
+        const vr = parseInt(candy.dataset.row);
+        const vc = parseInt(candy.dataset.col);
+        return this.visualToGrid(vr, vc).col;
+    }
+
     findMatchGroups() {
         const groups = [];
         const visited = new Set();
 
-        for (let r = 0; r < this.size; r++) {
-            for (let c = 0; c < this.size; c++) {
-                const candy = this.grid[r][c];
+        // Work in GRID coordinates for match detection
+        for (let gr = 0; gr < this.size; gr++) {
+            for (let gc = 0; gc < this.size; gc++) {
+                const candy = this.grid[gr][gc];
                 if (!candy || visited.has(candy)) continue;
 
-                const matchRight = this.findMatchesInDirection(r, c, 0, 1);
-                const matchDown = this.findMatchesInDirection(r, c, 1, 0);
+                const matchRight = this.findMatchesInDirection(gr, gc, 0, 1);
+                const matchDown = this.findMatchesInDirection(gr, gc, 1, 0);
                 
                 let combined = [];
 
@@ -342,15 +396,15 @@ export default class Board {
     async smashCandies(candiesToSmash) {
         if (candiesToSmash.length === 0) return;
         
-        // This is a smash, not a player-made match, so isPlayerMove is false.
         this.onMatch(candiesToSmash, false);
         
         candiesToSmash.forEach(candy => {
             candy.classList.add('matched');
-            const r = parseInt(candy.dataset.row);
-            const c = parseInt(candy.dataset.col);
-            if (this.grid[r] && this.grid[r][c] === candy) {
-                 this.grid[r][c] = null;
+            const vr = parseInt(candy.dataset.row);
+            const vc = parseInt(candy.dataset.col);
+            const gridCoords = this.visualToGrid(vr, vc);
+            if (this.grid[gridCoords.row] && this.grid[gridCoords.row][gridCoords.col] === candy) {
+                 this.grid[gridCoords.row][gridCoords.col] = null;
             }
         });
 
@@ -381,7 +435,10 @@ export default class Board {
         
         candiesToRemove.forEach(candy => {
             candy.classList.add('matched');
-            this.grid[parseInt(candy.dataset.row)][parseInt(candy.dataset.col)] = null;
+            const vr = parseInt(candy.dataset.row);
+            const vc = parseInt(candy.dataset.col);
+            const gridCoords = this.visualToGrid(vr, vc);
+            this.grid[gridCoords.row][gridCoords.col] = null;
         });
 
         await this.pausableTimeout(300);
@@ -395,18 +452,24 @@ export default class Board {
     }
 
     async dropCandies() {
-        for (let c = 0; c < this.size; c++) {
+        // Drop in GRID coordinates
+        for (let gc = 0; gc < this.size; gc++) {
             let emptyRow = this.size - 1;
-            for (let r = this.size - 1; r >= 0; r--) {
-                if (this.grid[r][c]) {
-                    if (emptyRow !== r) {
-                        // Move candy down
-                        this.grid[emptyRow][c] = this.grid[r][c];
-                        this.grid[r][c] = null;
-                        this.grid[emptyRow][c].dataset.row = emptyRow;
+            for (let gr = this.size - 1; gr >= 0; gr--) {
+                if (this.grid[gr][gc]) {
+                    if (emptyRow !== gr) {
+                        // Move candy down in grid
+                        this.grid[emptyRow][gc] = this.grid[gr][gc];
+                        this.grid[gr][gc] = null;
+                        
+                        // Update visual position
+                        const visualPos = this.gridToVisual(emptyRow, gc);
+                        this.grid[emptyRow][gc].dataset.row = visualPos.row;
+                        this.grid[emptyRow][gc].dataset.col = visualPos.col;
                         
                         const candySize = this.boardElement.clientWidth / this.size;
-                        this.grid[emptyRow][c].style.top = `${emptyRow * candySize}px`;
+                        this.grid[emptyRow][gc].style.top = `${visualPos.row * candySize}px`;
+                        this.grid[emptyRow][gc].style.left = `${visualPos.col * candySize}px`;
                     }
                     emptyRow--;
                 }
@@ -417,14 +480,16 @@ export default class Board {
     
     async fillBoard(isReplay = false) {
         const candySize = this.boardElement.clientWidth / this.size;
-        for (let r = 0; r < this.size; r++) {
-            for (let c = 0; c < this.size; c++) {
-                if (!this.grid[r][c]) {
-                    const candy = this.createCandy(r, c, undefined, false, isReplay);
-                    this.grid[r][c] = candy;
+        // Fill in GRID coordinates
+        for (let gr = 0; gr < this.size; gr++) {
+            for (let gc = 0; gc < this.size; gc++) {
+                if (!this.grid[gr][gc]) {
+                    const visualPos = this.gridToVisual(gr, gc);
+                    const candy = this.createCandy(visualPos.row, visualPos.col, undefined, false, isReplay);
+                    this.grid[gr][gc] = candy;
                     // Animate the drop
                     await new Promise(resolve => requestAnimationFrame(() => {
-                        candy.style.top = `${r * candySize}px`;
+                        candy.style.top = `${visualPos.row * candySize}px`;
                         resolve();
                     }));
                 }

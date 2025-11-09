@@ -57,7 +57,7 @@ export default class InputHandler {
     }
 
     handlePointerMove(e) {
-        if (!this.startCandy) return;
+        if (!this.startCandy || !this.enabled) return;
 
         const dx = e.clientX - this.startPos.x;
         const dy = e.clientY - this.startPos.y;
@@ -71,19 +71,23 @@ export default class InputHandler {
 
         const swipeThreshold = 20;
 
-        if (this.moved && (Math.abs(dx) > swipeThreshold || Math.abs(dy) > swipeThreshold)) {
-            // Simple screen-space swipe detection (no rotation adjustment)
-            let endRow, endCol;
+        if (this.moved && (Math.abs(dx) > Math.abs(dy) > swipeThreshold)) {
+            // Determine swipe direction in screen space
+            let deltaRow = 0, deltaCol = 0;
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Horizontal swipe in screen space
+                deltaCol = dx > 0 ? 1 : -1;
+            } else {
+                // Vertical swipe in screen space
+                deltaRow = dy > 0 ? 1 : -1;
+            }
+
             const startRow = parseInt(this.startCandy.dataset.row);
             const startCol = parseInt(this.startCandy.dataset.col);
-
-            if (Math.abs(dx) > Math.abs(dy)) { // Horizontal swipe
-                endRow = startRow;
-                endCol = startCol + (dx > 0 ? 1 : -1);
-            } else { // Vertical swipe
-                endRow = startRow + (dy > 0 ? 1 : -1);
-                endCol = startCol;
-            }
+            
+            const endRow = startRow + deltaRow;
+            const endCol = startCol + deltaCol;
 
             const targetCandy = document.querySelector(`.candy[data-row='${endRow}'][data-col='${endCol}']`);
 

@@ -193,11 +193,7 @@ class Game {
         const rotation = getOrientationRotation(this.requiredOrientation);
         
         // Rotate each candy individually so it appears facing the new "up"
-        this.board.boardElement.querySelectorAll('.candy').forEach(candy => {
-            const currentTransform = candy.style.transform;
-            const existingTransforms = currentTransform.replace(/rotate\([^)]+\)/g, '').trim();
-            candy.style.transform = `${existingTransforms} rotate(${rotation}deg)`;
-        });
+        this.board.rotateCandies(rotation);
         
         this.ui.comboDisplay.style.transform = `translate(-50%, -50%) rotate(0deg) scale(0.8)`;
 
@@ -321,17 +317,21 @@ class Game {
     async onSmash(candy) {
         if (this.isProcessing || this.smashValue <= 0) return;
         this.isProcessing = true;
+        this.inputHandler.disable(); // Disable input during processing
         this.pauseTimer();
 
         const r = parseInt(candy.dataset.row);
         const c = parseInt(candy.dataset.col);
+        
+        // Transform visual coordinates to grid coordinates for smash logic
+        const gridCoords = this.board.visualToGrid(r, c);
         const candiesToSmash = new Set();
         let smashCost = 0;
 
         if (this.smashValue >= 7 && this.smashValue <= 12) {
-            // 3x3 area centered on the candy
-            for (let i = r - 1; i <= r + 1; i++) {
-                for (let j = c - 1; j <= c + 1; j++) {
+            // 3x3 area centered on the candy (in grid coordinates)
+            for (let i = gridCoords.row - 1; i <= gridCoords.row + 1; i++) {
+                for (let j = gridCoords.col - 1; j <= gridCoords.col + 1; j++) {
                     if (this.board.isValid(i, j) && this.board.grid[i][j]) {
                         candiesToSmash.add(this.board.grid[i][j]);
                     }
@@ -339,9 +339,9 @@ class Game {
             }
             smashCost = 3;
         } else if (this.smashValue >= 4 && this.smashValue <= 6) {
-            // 2x2 area starting from the candy (top-left)
-            for (let i = r; i <= r + 1; i++) {
-                for (let j = c; j <= c + 1; j++) {
+            // 2x2 area starting from the candy (top-left in grid coordinates)
+            for (let i = gridCoords.row; i <= gridCoords.row + 1; i++) {
+                for (let j = gridCoords.col; j <= gridCoords.col + 1; j++) {
                     if (this.board.isValid(i, j) && this.board.grid[i][j]) {
                         candiesToSmash.add(this.board.grid[i][j]);
                     }
@@ -355,6 +355,7 @@ class Game {
 
         if (this.smashValue < smashCost || smashCost === 0) {
             this.isProcessing = false;
+            this.checkOrientationMatch(); // Re-enable input if orientation matches
             this.resumeTimer();
             return;
         }
@@ -370,16 +371,17 @@ class Game {
         playSound('smash.mp3');
         recorder.recordSound('smash.mp3');
         
-        // Pass a flag to indicate this is a smash action
         await this.board.smashCandies(Array.from(candiesToSmash));
 
         this.isProcessing = false;
+        this.checkOrientationMatch(); // Re-enable input if orientation matches
         this.resumeTimer();
     }
 
     async onSwap(candy1, candy2) {
         if (this.isProcessing) return;
         this.isProcessing = true;
+        this.inputHandler.disable(); // Disable input during processing
         this.pauseTimer();
         if (!this.isRainbowMode) {
             this.comboCount = 0; // Reset combo on new player move, unless in rainbow mode
@@ -406,9 +408,9 @@ class Game {
                 });
             }
             
-            // We don't need to swap visually, just activate
             await this.board.activateRainbowPowerup(rainbowCandy, otherCandy);
             this.isProcessing = false;
+            this.checkOrientationMatch(); // Re-enable input if orientation matches
             this.resumeTimer();
             return;
         }
@@ -424,6 +426,7 @@ class Game {
         }
         
         this.isProcessing = false;
+        this.checkOrientationMatch(); // Re-enable input if orientation matches
         this.resumeTimer();
     }
 }
